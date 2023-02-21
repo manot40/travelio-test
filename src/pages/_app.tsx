@@ -1,6 +1,20 @@
-import '@/styles/globals.css'
-import type { AppProps } from 'next/app'
+import type { AppProps } from 'next/app';
 
-export default function App({ Component, pageProps }: AppProps) {
-  return <Component {...pageProps} />
-}
+import Head from 'next/head';
+import BaseLayout from '@/layouts/Base';
+import Providers from '@/components/Providers';
+
+const App = ({ Component, pageProps }: AppProps) => {
+  return (
+    <Providers>
+      <Head>
+        <title>Simple Bookshelf</title>
+      </Head>
+      <BaseLayout>
+        <Component {...pageProps} />
+      </BaseLayout>
+    </Providers>
+  );
+};
+
+export default App;
