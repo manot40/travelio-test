@@ -2,7 +2,7 @@ import mongoose from 'mongoose';
 
 const DB_URI = process.env.NEXT_DB_URL;
 
-if (!DB_URI) throw new Error('Please define the MONGODB_URI environment variable inside .env.local');
+if (!DB_URI) throw new Error('Please define the NEXT_DB_URL environment variable');
 
 let cached: {
   promise: Promise<typeof mongoose> | null;
