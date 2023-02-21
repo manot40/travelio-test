@@ -53,7 +53,7 @@ export function mongooseQueryBuilder<T extends Model<any>, D extends ModelDoc<T>
       } else if (isDifferent) {
         filter.$and.push({ [path]: { $ne: val } });
       } else if (isLike) {
-        filter.$and.push({ [path]: { $regex: val, $options: 'i' } });
+        filter.$or.push({ [path]: { $regex: val, $options: 'i' } });
       } else if (isIn) {
         filter.$and.push({ [path]: { $in: val.split(',') } });
       } else {

@@ -1,15 +1,18 @@
 import { memo } from 'react';
 
+import { useDisclosure } from '@mantine/hooks';
+
 import Link from 'next/link';
 import { IconHeartPlus } from '@tabler/icons-react';
-import { Box, Image, Flex, Stack, Divider, Title, Text, ActionIcon, Rating } from '@mantine/core';
+import { Box, Image, Flex, Stack, Divider, Title, Text, ActionIcon, Rating, Loader } from '@mantine/core';
 
 type BookCardProps = {
   data: VolumeInfo;
-  onFavorite?: (book: VolumeInfo) => void;
+  onFavorite?: (book: VolumeInfo) => Promise<void>;
 };
 
 const BookCard: React.FC<BookCardProps> = ({ data, onFavorite }) => {
+  const [loading, handler] = useDisclosure(false);
   return (
     <>
       <Flex gap="md">
@@ -26,15 +29,27 @@ const BookCard: React.FC<BookCardProps> = ({ data, onFavorite }) => {
         </Box>
         <Flex direction="column" gap={12}>
           <Stack spacing={2}>
-            <Flex gap={4}>
+            <Flex gap={4} align="center">
               <Link href={data.canonicalVolumeLink} target="_blank" rel="noreferrer noopener">
                 <Title mb={2} size={18} weight={500} order={1}>
                   {data.title}
                 </Title>
               </Link>
-              <ActionIcon onClick={() => onFavorite?.(data)} title="Add to favorite" color="red">
-                <IconHeartPlus size={18} stroke={2} />
-              </ActionIcon>
+              {loading ? (
+                <Loader px={1} size={18} />
+              ) : (
+                <ActionIcon
+                  color="red"
+                  title="Add to favorite"
+                  onClick={() => {
+                    if (!onFavorite) return;
+                    handler.open();
+                    onFavorite(data).finally(handler.close);
+                  }}
+                >
+                  <IconHeartPlus size={18} stroke={2} />
+                </ActionIcon>
+              )}
             </Flex>
             <Rating value={data.averageRating || 0} fractions={2} count={5} size="xs" mb={2} readOnly />
             <Flex>

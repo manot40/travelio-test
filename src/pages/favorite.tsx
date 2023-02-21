@@ -38,7 +38,7 @@ export default function Favorite() {
   return (
     <Flex justify={{ base: 'center', md: 'inherit' }} ml={{ base: 0, md: 180 }} px="md">
       <Stack spacing="xl" w={{ base: '100%', md: 640 }}>
-        <TextInput placeholder="Search in favorite" onChange={(e) => handleSearch(e.target.value)} />
+        <TextInput placeholder="Search in favorite by title" onChange={(e) => handleSearch(e.target.value)} />
         {res ? (
           <Stack spacing="md">
             {res.data.result.length ? (
@@ -51,7 +51,7 @@ export default function Favorite() {
                     publishedDate: f.publishedDate + '',
                     imageLinks: { thumbnail: f.image, smallThumbnail: f.image },
                   }}
-                  onFavorite={(d) => handleFavorite(d, syncCount).then(() => mutate())}
+                  onFavorite={(d) => handleFavorite(d, syncCount).finally(() => mutate())}
                 />
               ))
             ) : (
