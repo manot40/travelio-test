@@ -36,14 +36,7 @@ const BookCard: React.FC<BookCardProps> = ({ data, onFavorite }) => {
                 <IconHeartPlus size={18} stroke={2} />
               </ActionIcon>
             </Flex>
-            <Rating
-              mb={2}
-              value={data.averageRating || 0}
-              count={data.ratingsCount || 5}
-              readOnly
-              fractions={3}
-              size="xs"
-            />
+            <Rating value={data.averageRating || 0} fractions={2} count={5} size="xs" mb={2} readOnly />
             <Flex>
               {data.authors && <Text size={13}>{data.authors.join(', ')}&nbsp;-</Text>}
               {data.publishedDate && <Text size={13}>&nbsp;{new Date(data.publishedDate).getFullYear()}</Text>}
