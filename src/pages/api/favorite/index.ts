@@ -2,7 +2,7 @@ import type { NextApiRequest, NextApiResponse } from 'next';
 
 import db, { Favorite } from '@/models';
 import { favoriteSchema } from '@/schema';
-import { mongoosePagination, reqErrorHandler } from '@/utils';
+import { paginationQuery, reqErrorHandler } from '@/utils';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   try {
@@ -10,7 +10,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     switch (req.method) {
       case 'GET': {
-        const data = await mongoosePagination(Favorite, req.query);
+        const data = await paginationQuery(Favorite, req.query);
 
         return res.status(200).json({
           success: true,

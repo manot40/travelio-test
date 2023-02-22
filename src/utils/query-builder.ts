@@ -1,26 +1,34 @@
-import { Types, type FilterQuery, type Model, type SortOrder, type LeanDocument } from 'mongoose';
+import { Types, type FilterQuery, type Model, type SortOrder, type LeanDocument as L, LeanDocument } from 'mongoose';
 
 type ModelDoc<T> = T extends Model<infer U> ? U : never;
 
-export function mongooseQueryBuilder<T extends Model<any>, D extends ModelDoc<T>>(
+type FilterSortOpts<D> = {
+  exclusion?: (keyof LeanDocument<D>)[];
+  initialFilter?: { $and: FilterQuery<D>[]; $or: FilterQuery<D>[] };
+};
+
+export function filterSortQuery<T extends Model<any>, D extends ModelDoc<T>>(
   model: T,
   query: Partial<Record<string, string | string[]>>,
-  exclusion = [] as (keyof LeanDocument<D>)[]
+  { exclusion = [], initialFilter } = {} as FilterSortOpts<D>
 ) {
-  const reqQ = { ...query };
-  const filter = {
-    $and: [] as FilterQuery<T>[],
-    $or: [] as FilterQuery<T>[],
-  };
-  const sort = {} as Record<keyof T, SortOrder>;
-  const projection = [] as (keyof T)[];
+  const reqQ = { ...query },
+    sort = {} as Record<keyof T, SortOrder>,
+    projection = [] as (keyof T)[],
+    filter = initialFilter || {
+      $and: [] as FilterQuery<T>[],
+      $or: [] as FilterQuery<T>[],
+    };
 
-  let _sort = reqQ._sort as string,
-    _order = reqQ._order as string,
-    _select = reqQ._select as string;
+  const _sort = reqQ._sort + '',
+    _order = reqQ._order + '',
+    _select = reqQ._select + '';
 
   delete reqQ._sort;
   delete reqQ._order;
+  delete reqQ._start;
+  delete reqQ._end;
+  delete reqQ._limit;
 
   Object.keys(reqQ).forEach((qKey) => {
     if (exclusion.length && exclusion.findIndex((e) => e.toString().includes(qKey)) > -1) {
@@ -53,7 +61,7 @@ export function mongooseQueryBuilder<T extends Model<any>, D extends ModelDoc<T>
       } else if (isDifferent) {
         filter.$and.push({ [path]: { $ne: val } });
       } else if (isLike) {
-        filter.$or.push({ [path]: { $regex: val, $options: 'i' } });
+        filter.$and.push({ [path]: { $regex: val, $options: 'i' } });
       } else if (isIn) {
         filter.$and.push({ [path]: { $in: val.split(',') } });
       } else {
@@ -63,16 +71,19 @@ export function mongooseQueryBuilder<T extends Model<any>, D extends ModelDoc<T>
   });
 
   // Sort
-  if (_sort) {
+  if (_sort !== 'undefined') {
     const _sortSet = _sort.split(',');
-    const _orderSet = (_order || '').split(',').map((s) => s.toLowerCase());
+    const _orderSet = _order.split(',').map((s) => s.toLowerCase());
 
     _sortSet.forEach((key, index) => {
       sort[key as keyof T] = _orderSet[index] === 'desc' ? -1 : 1;
     });
+  } else {
+    // @ts-ignore
+    sort.createdAt = -1;
   }
 
-  if (_select) {
+  if (_select !== 'undefined') {
     const _selectSet = _select.split(',');
 
     _selectSet.forEach((key) => {
@@ -85,43 +96,41 @@ export function mongooseQueryBuilder<T extends Model<any>, D extends ModelDoc<T>
   return { filter, sort, projection };
 }
 
-export async function mongoosePagination<T extends Model<any>, D extends ModelDoc<T>>(
+export async function paginationQuery<T extends Model<any>, D extends ModelDoc<T>, L extends LeanDocument<D>>(
   model: T,
   query: Partial<Record<string, string | string[]>>,
-  exclusion: (keyof LeanDocument<D>)[] | Partial<ReturnType<typeof mongooseQueryBuilder>> = []
+  opts: FilterSortOpts<L> & { populate?: [keyof L, string][] | (keyof L)[] } = {}
 ) {
   const reqQ = { ...query };
 
-  let start = reqQ._start as string,
-    page = isNaN(+(reqQ._page || '')) ? 1 : +(reqQ._page || '1'),
-    limit = isNaN(+(reqQ._limit || '')) ? 10 : +(reqQ._limit || '10');
+  const start = reqQ._start as string,
+    page = isNaN(+reqQ._page!) ? 1 : +reqQ._page! || 1,
+    limit = isNaN(+reqQ._limit!) ? 10 : +reqQ._limit! || 10;
 
-  delete reqQ._start;
-  delete reqQ._end;
-  delete reqQ._limit;
-
-  const {
-    filter,
-    sort,
-    projection = [],
-  } = Array.isArray(exclusion) ? mongooseQueryBuilder(model, reqQ, exclusion) : exclusion;
+  const { filter, sort, projection } = filterSortQuery(model, reqQ, opts);
 
   if (start) {
-    if (Types.ObjectId.isValid(start)) filter.$and.push({ _id: { $lt: start } });
-    const result: LeanDocument<D>[] = await model.find(filter).sort(sort).limit(limit).select(projection).lean();
-
-    return { result };
-  } else {
-    const totalItems = await model.count(filter);
-    const totalPage = totalItems ? Math.ceil(totalItems / limit) : 0;
-    const result: LeanDocument<D>[] = await model
-      .find(filter)
-      .sort(sort)
-      .skip((page - 1) * limit)
-      .limit(limit)
-      .select(projection)
-      .lean();
-
-    return { result, totalItems, totalPage };
+    if (!Types.ObjectId.isValid(start)) throw new Error('Invalid start id');
+    filter.$and.push({ _id: { $lt: start } });
   }
+
+  let dbQuery = model.find(filter).sort(sort).select(projection),
+    totalItems,
+    totalPage;
+
+  if (!start) {
+    totalItems = await model.count(filter);
+    totalPage = totalItems ? Math.ceil(totalItems / limit) : 0;
+    dbQuery = dbQuery.skip((page - 1) * limit).limit(limit);
+  }
+
+  if (opts.populate)
+    opts.populate.forEach((p) => {
+      if (Array.isArray(p)) dbQuery = dbQuery.populate(p[0] as string, p[1]);
+      else dbQuery = dbQuery.populate(p.toString());
+    });
+
+  const result: L[] = await dbQuery.lean();
+
+  return { result, totalItems, totalPage };
 }
